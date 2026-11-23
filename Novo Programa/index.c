@@ -105,237 +105,192 @@ void excluirArquivo(int tipo){ // 1 = Aluno | 2 = Exercicio | 3 = GrupoMuscular 
     garantir_arquivo();
 }
 
-void escolherObjeto(int codigos[], int tipo, int tamanho){
+void escolherObjeto(int codigos[], int tipo, int tamanho) {
+    if (tipo < 1 || tipo > 4 || tamanho <= 0) return; //Se o objeto não fazer do meu conjunto inicial estipulado, nem procure 
+
     char linha[TAM_BUFFER];
-    const char *nomeDoObjeto = NOMES[tipo]; 
-    FILE *arq = fopen(ARQUIVOS[tipo], "r");
-    //Definindo o nome do Objeto Para printf's
+    const char *nomeDoObjeto = NOMES[tipo]; //Para personalizar os prints, relacionei, o tipo com um array de nomes 
+    // 1 = Aluno | 2 = Exercicio | 3 = GrupoMuscular | 4 = Treino 
+    for (int i = 0; i < tamanho; i++) {
+        int objEscolhido = 0, objExiste = 0;
 
-    if (arq == NULL) {
-            printf("Erro ao abrir o arquivo de %s.\n", nomeDoObjeto);
-            return;
-    }
-
-    for (int i = 0; i < tamanho; i++){
-        int  objEscolhido = 0, objExiste = 0;
-        listar(tipo); 
-        char operator;
-    
-        printf("Escreva o Cod do %s: \nSe o %s nao foi registrado, digite 0\n", nomeDoObjeto, nomeDoObjeto);
-        if (scanf("%d", &objEscolhido) != 1) objEscolhido = 0; //Se ele retornar um caracter inválido, obj vira zero
+        listar(tipo);
+        printf("Escreva o código do(a) %s.\nSe não estiver registrado, digite 0: ", nomeDoObjeto);
+        if (scanf("%d", &objEscolhido) != 1) objEscolhido = 0; //Se a atribuição der errado, (escrevi letra onde é numero), obj vira 0
         limpar_buffer();
-        char *token;
 
-        fgets(linha, sizeof(linha), arq);//Pula o Cabeçalho
-        while (fgets(linha, sizeof(linha), arq) != NULL) {
-            token = strtok(linha, ";");//Aqui estou atribuindo o cod da linha
-            if (token != NULL && objEscolhido == atoi(token)){ //Para depois compara-la com o objEscolhido
-                objExiste = 1;
-                codigos[i] = objEscolhido;
-            };
+        if (objEscolhido != 0) {
+            FILE *arq = fopen(ARQUIVOS[tipo], "r");
+            if (arq == NULL) {
+                printf("Erro ao abrir o arquivo de %s.\n", nomeDoObjeto);
+                return;
+            }
+            fgets(linha, sizeof(linha), arq);          /* pula cabeçalho */
+            while (fgets(linha, sizeof(linha), arq) != NULL) {
+                int cod;
+                if (sscanf(linha, "%d", &cod) == 1 && cod == objEscolhido) {
+                    objExiste = 1;
+                    break;
+                }
+            }
+            fclose(arq);                               /* sempre fechado aqui */
         }
-        
-        if (objExiste){
-            printf("%s Adicionado com sucesso!", nomeDoObjeto);
-        }
-        else{
-            printf("Cadastre o Novo %s\n", nomeDoObjeto);
-            cadastrar(tipo);
-            objEscolhido = prox_codigo(tipo) - 1; //Por meio desse método, adciono o código do último autor registrado
+
+        if (objExiste) {
             codigos[i] = objEscolhido;
+            printf("%s adicionado com sucesso!\n", nomeDoObjeto);
+        } else {
+            printf("Cadastre o novo %s\n", nomeDoObjeto);
+            cadastrar(tipo);
+            codigos[i] = prox_codigo(tipo) - 1;
         }
-        rewind(arq);
-        
     }
-    fclose(arq);
 }
-
-
 
 
 
 void cadastrar(int tipo) {
    
+    limpar_tela();
     FILE *arq = NULL;
+    char cab[TAM_BUFFER]; //Atribuo o cabeçalho específico de cada objeto
+    strcpy(cab, CABECALHOS[tipo]);
+    char linha[TAM_BUFFER]; //Crio uma nova linha em branco para colocar dentro do meu arquivo
+    char valor[MAX_NOME];   
 
-    switch (tipo){ //Tipo 01: Usuario | 02:Autor | 03:Livro | 04:Emprestimo
-        case 1:{ 
-            arq = fopen(ARQ_USUARIO, "a");   /* modo append */
-            Usuario a;
-            if (arq == NULL) {
-                printf("Erro ao abrir o arquivo %s.\n", ARQ_USUARIO);
-                return;
+    snprintf(linha, sizeof(linha), "%d", prox_codigo(tipo)); //Primeiro eu escrevo o codigo do objeto
+    strtok(cab, ";");/* pula o campo "cod" */
+    
+    //A partir daqui, eu vou passar por cada campo do cabeçalho, e atribui-los a uma linha em branco
+    char *campo;
+    while ((campo = strtok(NULL, ";")) != NULL) { //
+        if (strcmp(campo, "rotina") == 0){ //Se o campo se chamar rotina
+            /* rotina: um código de treino para cada dia da semana */
+            int rotina[7] = {0};
+            escolherObjeto(rotina, 4, 7);//array rotina recebe os valores, tipo 4:Objeto treino, 7 quantidades de treinos que rotina recebe
+            strncat(linha, ";", sizeof(linha) - strlen(linha) - 1);
+            for (int i = 0; i < 7; i++) {
+                char num[16];
+                snprintf(num, sizeof(num), i == 0 ? "%d" : ",%d", rotina[i]);
+                strncat(linha, num, sizeof(linha) - strlen(linha) - 1);
             }
-            a.cod = prox_codigo(1);
-            if (a.cod == 0){
-                printf("Error, Tente de novo\n");
-                fclose(arq);
-                return;
-            }
-            
-            //Atribuição do Nome, com limitador
-            printf("Nome: ");
-            fgets(a.nome, MAX_NOME, stdin);
-            a.nome[strcspn(a.nome, "\n")] = '\0';
-
-            printf("Idade: ");
-            scanf("%d", &a.idade);
-            printf("Peso: ");
-            scanf("%f", &a.peso);
-            printf("Altura: ");
-            scanf("%f", &a.altura);
-            for (int i = 0; i < 7; i++)
-            {
-
-                
-            };
-            
-            
-            fprintf(arq, "\n%d;%s;%d\n", a.cod, a.nome, a.status);
-
-            fclose(arq);
-            printf("Usuário cadastrado com sucesso!\n");
             break;
         }
-        case 2:{
-            arq = fopen(ARQ_AUTOR, "a");   /* modo append, adiciona um novo objeto no final do arquivo */
-            Autor a;
-            if (arq == NULL) {
-                printf("Erro ao abrir o arquivo %s.\n", ARQ_AUTOR);
-                return;
+        if (strcmp(campo, "grupo muscular") == 0){ //Se o campo se chamar grupo muscular
+            /* grupo muscular, 1 codigo só */
+            int grupoMuscular[1] = {0}; // 1 = Aluno | 2 = Exercicio | 3 = Grupo Muscular | 4 = Treino 
+            escolherObjeto(grupoMuscular, 3, 1);// tipo 3:Grupo Muscular
+            strncat(linha, ";", sizeof(linha) - strlen(linha) - 1);
+            char num[16];
+            snprintf(num, sizeof(num), "%d", grupoMuscular[0]);//Printf dentro de uma string
+            strncat(linha, num, sizeof(linha) - strlen(linha) - 1);
+            continue; //Ainda falta registrar séries
+        }
+        if (strcmp(campo, "exercicios") == 0){ //Se o campo se chamar exercicios
+            int qtd_ex = 0;
+            printf("Quantos exercícios (1 a %d)? ", MAX_EXERCICIOS);
+            if (scanf("%d", &qtd_ex) != 1){ limpar_buffer(); return; }
+            if (qtd_ex > 12) {
+                printf("O valor máximo é 12\n");
+                qtd_ex = 12;
             }
-            a.cod = prox_codigo(2); //Tipo 01: Usuario | 02:Autor | 03:Livro | 04 Emprestimo
+            if (qtd_ex < 1) {
+                printf("O valor mínimo é 1\n");
+                qtd_ex = 1;
+            }
 
-            printf("Nome: ");
-            fgets(a.nome, MAX_NOME, stdin); //Atribuição do Nome, com limitador
-            a.nome[strcspn(a.nome, "\n")] = '\0';
-            fprintf(arq, "\n%d;%s;\n", a.cod, a.nome);
+            int exercicios[MAX_EXERCICIOS] = {0}; //Inicializo um array com codigos de exercicios
+            escolherObjeto(exercicios, 2, qtd_ex);// tipo 2:Exercicio
 
-            fclose(arq);
-            printf("Autor cadastrado com sucesso!\n");
-            break;}
+            strncat(linha, ";", sizeof(linha) - strlen(linha) - 1);
+            int qtd = 0;
+            for (int i = 0; i < qtd_ex; i++) {
+                if (exercicios[i] == 0) continue;
+                char num[16];
+                snprintf(num, sizeof(num), qtd == 0 ? "%d" : ",%d", exercicios[i]);
+                strncat(linha, num, sizeof(linha) - strlen(linha) - 1);
+                qtd++;
+            }
+            break;
+        }
         
-        case 3:{
-            arq = fopen(ARQ_LIVRO, "a");   /* modo append, adiciona um novo objeto no final do arquivo */
-            Livro a;
+        printf("%s: ", campo);// printa o valor do campo específico do cabeçalho, se escrever um valor inválido interrompe o cadastro;
+        if (fgets(valor, sizeof(valor), stdin) == NULL) return;
+        valor[strcspn(valor, "\n")] = '\0';
 
-            if (arq == NULL) {
-                printf("Erro ao abrir o arquivo %s.\n", ARQ_LIVRO);
-                return;
-            }
+        //Se o gênio resolver colocar ; ao atribuir dos valores
+        if (strchr(valor, ';') != NULL) {
+            printf("Não use ';' nos dados.\n");
+            return;
+        }
+        strncat(linha, ";", sizeof(linha) - strlen(linha) - 1);
+        strncat(linha, valor, sizeof(linha) - strlen(linha) - 1);
 
-            a.cod = prox_codigo(3); //Tipo 01: Usuario | 02:Autor | 03:Livro 
-            printf("Titulo do Livro: ");
-            fgets(a.titulo, MAX_NOME, stdin); //Atribuição do Nome, com limitador de 80 caracteres
-            a.titulo[strcspn(a.titulo, "\n")] = '\0';
-
-            printf("Defina o Estoque do livro %s:\n", a.titulo);
-            scanf("%d", &a.estoque);
-            limpar_buffer();
-            
-            //Aqui começa o registro
-            
-            a.codAutores[0] = a.codAutores[1] = a.codAutores[2] = 0;
-            escolherAutor(a.codAutores);
-            fprintf(arq, "\n%d;%s;%d;%d;%d;%d\n", a.cod, a.titulo,a.estoque,a.codAutores[0],a.codAutores[1],a.codAutores[2]);
-            fclose(arq);
-            printf("Livro cadastrado com sucesso!\n");
+    }
+    /* grava só no final, com o arquivo aberto o mínimo de tempo */
+     switch (tipo){ // 1 = Aluno | 2 = Exercicio | 3 = GrupoMuscular | 4 = Treino 
+        case 1:{ 
+            arq = fopen(ARQ_USUARIO, "a");
             break;
         }
-        case 4:{
-            Emprestimo a;
-            char linha[TAM_BUFFER], nome[MAX_NOME], titulo[MAX_NOME];
-            int codUser, statusUser, estoque, qtd = 0;
-
-            a.codLivro[0] = a.codLivro[1] = a.codLivro[2] = 0;
-            a.status = 0;
-
-            /* 1) Aluno */
-            listar(1);
-            printf("Cod do Usuario: ");
-            scanf("%d", &a.codAluno);
-            limpar_buffer();
-
-            if (!buscar_registro(ARQ_USUARIO, a.codAluno, linha, sizeof(linha)) ||
-                sscanf(linha, "%d;%79[^;];%d", &codUser, nome, &statusUser) != 3) {
-                printf("Usuario nao encontrado.\n");
-                return;
-            }
-            if (statusUser != 0) {
-                printf("Usuario nao esta ATIVO, emprestimo negado.\n");
-                return;
-            }
-
-            /* 2) Livros (até 3) */
-            for (int i = 0; i < 3; i++) {
-                int codEscolhido, repetido = 0;
-
-                listar(3);
-                printf("Cod do Livro: ");
-                scanf("%d", &codEscolhido);
-                limpar_buffer();
-
-                for (int j = 0; j < i; j++)
-                    if (a.codLivro[j] == codEscolhido) repetido = 1;
-
-                if (repetido) {
-                    printf("Esse livro ja esta neste emprestimo.\n"); //Não permito emprestar dois livros iguais
-                    i--;                                  
-                    continue;
-                }
-
-                if (!buscar_registro(ARQ_LIVRO, codEscolhido, linha, sizeof(linha)) ||
-                    sscanf(linha, "%d;%79[^;];%d", &codEscolhido, titulo, &estoque) != 3) {
-                    printf("Livro nao encontrado.\n");
-                    i--;
-                    continue;
-                }
-                if (estoque <= 0) {
-                    printf("Livro '%s' sem estoque.\n", titulo);
-                    i--;
-                    continue;
-                }
-                if (!alterar_estoque(codEscolhido, -1)) {
-                    printf("Erro ao atualizar o estoque.\n");
-                    break;
-                }
-
-                a.codLivro[qtd++] = codEscolhido;
-                printf("Livro '%s' adicionado!\n", titulo);
-
-                if (i < 2) {
-                    char operator;
-                    printf("Pretende emprestar mais algum livro?(S/N)\n");
-                    scanf(" %c", &operator);
-                    limpar_buffer();
-                    if (operator == 'N' || operator == 'n') break;
-                    limpar_tela();
-                }
-            }
-
-            if (qtd == 0) {
-                printf("Nenhum livro selecionado, emprestimo cancelado.\n");
-                return;
-            }
-
-            /* 3) Grava */
-            arq = fopen(ARQ_EMP, "a");
-            if (arq == NULL) {
-                printf("Erro ao abrir o arquivo %s.\n", ARQ_EMP);
-                for (int i = 0; i < qtd; i++) alterar_estoque(a.codLivro[i], +1);  /* desfaz */
-                return;
-            }
-            a.cod = prox_codigo(4); // 1 Aluno | 2 = Autor | 3 = Livro | 4 = Empréstimo
-            fprintf(arq, "%d;%d;%d;%d;%d;%d\n", a.cod, a.codAluno,
-                    a.codLivro[0], a.codLivro[1], a.codLivro[2], a.status);
-            fclose(arq);
-            printf("Emprestimo %d cadastrado com sucesso!\n", a.cod);
+        case 2:{ 
+            arq = fopen(ARQ_EXERCICIO, "a");
             break;
         }
+        case 3:{ 
+            arq = fopen(ARQ_GM, "a");
+            break;
+        }
+        case 4:{ 
+            arq = fopen(ARQ_TREINO, "a");
+            break;
+        }
+        
         default:
             break;
-    }
-    
-    
+        }
+        if (arq == NULL) return;
+        fprintf(arq, "%s\n", linha);
+        fclose(arq);
+        printf("Cadastrado com sucesso\n");   
 }
 
+void listar(int tipo) {
+    if (tipo < 1 || tipo > 4) return;
+
+    FILE *arq = fopen(ARQUIVOS[tipo], "r");
+    if (arq == NULL) {
+        printf("Erro ao abrir o arquivo de %s.\n", NOMES[tipo]);
+        return;
+    }
+
+    char linha[TAM_BUFFER];
+
+    /* cabeçalho */
+    if (fgets(linha, sizeof(linha), arq) != NULL) {
+        linha[strcspn(linha, "\r\n")] = '\0'; // Não Entendi
+        for (char *p = linha; *p; p++) if (*p == ';') *p = '\t'; // Essas duas linhas
+        printf("\n%s\n", linha);
+        printf("---------------------------------------------------\n", linha);
+    }
+
+    /* registros */
+    while (fgets(linha, sizeof(linha), arq) != NULL) {
+        linha[strcspn(linha, "\r\n")] = '\0';
+        if (linha[0] == '\0') continue;           /* ignora linha em branco */
+        for (char *p = linha; *p; p++) if (*p == ';') *p = '\t';
+        printf("%s\n", linha);
+    }
+    printf("\n");
+    fclose(arq);
+}
+
+
+int main(void){
+    garantir_arquivo();
+    listar(1);
+    listar(2);
+    listar(3);
+    listar(4);
+
+}
